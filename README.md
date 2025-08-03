@@ -1,6 +1,6 @@
 # AWS Security Auto-Remediation Lambda
 
-Enhanced AWS Security Hub auto-remediation Lambda function with cross-account capabilities and comprehensive security remediations.
+Enhanced AWS Security Hub auto-remediation Lambda function with cross-account capabilities, comprehensive security remediations, and integrated ticket management system.
 
 ## 🚀 Features
 
@@ -12,6 +12,9 @@ Enhanced AWS Security Hub auto-remediation Lambda function with cross-account ca
 - **ARM64 Support**: Compatible with ARM64 architecture for cost optimization
 - **Multi-Service Remediations**: Coordinated remediations across multiple AWS services
 - **Orchestrated Workflows**: Complex multi-step remediation processes
+- **🎫 Integrated Ticket Management**: Automatic ticket creation for Security Hub findings
+- **🔗 Multiple Ticket Systems**: Support for Jira, GitHub Issues, and custom DynamoDB tickets
+- **📊 Ticket Dashboard**: Web-based dashboard for monitoring and managing tickets
 
 ## 🏗️ Architecture
 
@@ -20,6 +23,7 @@ This Lambda function integrates with AWS Security Hub to automatically remediate
 - **Multi-Service Remediations**: Coordinated remediations across multiple AWS services
 - **Cross-Account Operations**: Remediation across different AWS accounts
 - **Orchestrated Workflows**: Complex multi-step remediation processes
+- **Ticket Integration**: Automatic ticket creation and management for all findings
 
 ## 📋 Supported Remediations
 
@@ -77,6 +81,28 @@ This Lambda function integrates with AWS Security Hub to automatically remediate
 - SageMaker notebook encryption and model security
 - Glue job encryption and catalog encryption
 
+## 🎫 Ticket Management System
+
+### Supported Ticket Systems
+- **Jira**: Full integration with Jira for issue tracking
+- **GitHub Issues**: Automatic GitHub issue creation and updates
+- **DynamoDB**: Custom ticket system using DynamoDB
+- **Web Dashboard**: HTML dashboard for ticket monitoring
+
+### Ticket Features
+- **Automatic Creation**: Tickets created automatically for all Security Hub findings
+- **Status Tracking**: Real-time status updates for remediation progress
+- **Severity Mapping**: Automatic severity to priority mapping
+- **Label Management**: Automatic labeling based on finding type
+- **Comment Integration**: Automatic comments for status updates
+- **Webhook Support**: Real-time updates via webhooks
+
+### Ticket Dashboard
+- **Real-time Monitoring**: Live view of all tickets and their status
+- **Filtering**: Filter by status, severity, and search terms
+- **Statistics**: Dashboard with ticket metrics and trends
+- **Responsive Design**: Works on desktop and mobile devices
+
 ## 🚀 Deployment
 
 ### Prerequisites
@@ -84,6 +110,7 @@ This Lambda function integrates with AWS Security Hub to automatically remediate
 - AWS CLI configured
 - Appropriate IAM permissions for Security Hub, Lambda, and other AWS services
 - SNS topic for notifications
+- GitHub Personal Access Token (for GitHub integration)
 
 ### Quick Deployment
 
@@ -102,6 +129,27 @@ This Lambda function integrates with AWS Security Hub to automatically remediate
    - `deploy-simple.sh` - Basic deployment
    - `deploy.sh` - Full deployment with CloudFormation
    - `deploy-arm64.sh` - ARM64 optimized deployment
+
+### Ticket System Setup
+
+#### Option 1: Basic Ticket System (DynamoDB)
+```bash
+chmod +x setup-ticket-system.sh
+./setup-ticket-system.sh
+```
+
+#### Option 2: GitHub Issues Integration
+```bash
+chmod +x setup-github-tickets.sh
+./setup-github-tickets.sh
+```
+
+#### Option 3: Jira Integration
+Configure the following environment variables:
+- `JIRA_URL`: Your Jira instance URL
+- `JIRA_USERNAME`: Your Jira username
+- `JIRA_API_TOKEN`: Your Jira API token
+- `JIRA_PROJECT_KEY`: Your Jira project key
 
 ### Deployment Options
 
@@ -145,6 +193,21 @@ Set the following environment variables:
 - `TIMEOUT`: Lambda function timeout in seconds
 - `MEMORY_SIZE`: Lambda function memory size in MB
 
+### Ticket System Environment Variables
+
+#### For DynamoDB Tickets
+- `TICKET_TABLE_NAME`: DynamoDB table name for tickets
+
+#### For GitHub Issues
+- `GITHUB_TOKEN`: GitHub Personal Access Token
+- `GITHUB_REPO`: GitHub repository (format: "owner/repo")
+
+#### For Jira Integration
+- `JIRA_URL`: Jira instance URL
+- `JIRA_USERNAME`: Jira username
+- `JIRA_API_TOKEN`: Jira API token
+- `JIRA_PROJECT_KEY`: Jira project key
+
 ### IAM Permissions
 
 The Lambda function requires permissions for:
@@ -157,6 +220,7 @@ The Lambda function requires permissions for:
 - KMS (key management)
 - CloudWatch (metrics and logs)
 - SNS (notifications)
+- DynamoDB (ticket management)
 - And many other AWS services
 
 ## 🔒 Security Considerations
@@ -167,6 +231,7 @@ The Lambda function requires permissions for:
 - Failed remediations are reported via SNS
 - Environment variables should be encrypted
 - Consider using AWS Secrets Manager for sensitive configuration
+- GitHub tokens and Jira credentials should be stored securely
 
 ## 📊 Monitoring
 
@@ -174,21 +239,31 @@ The Lambda function requires permissions for:
 - `RemediationSuccess`: Number of successful remediations
 - `RemediationFailure`: Number of failed remediations
 - `TotalRemediations`: Total number of remediations processed
+- `TicketCreation`: Number of tickets created
+- `TicketUpdates`: Number of ticket updates
 
 ### CloudWatch Logs
 - Detailed logging for troubleshooting
 - Error tracking and debugging
 - Performance monitoring
+- Ticket system logs
 
 ### SNS Notifications
 - Success notifications for remediated findings
 - Failure notifications for failed remediations
 - Error notifications for system issues
+- Ticket creation and update notifications
 
 ### Security Hub Integration
 - Automatic finding status updates
 - Remediation tracking
 - Compliance reporting
+
+### Ticket Dashboard
+- Real-time ticket monitoring
+- Status tracking and filtering
+- Performance metrics
+- Integration status
 
 ## 🧪 Testing
 
@@ -199,6 +274,7 @@ The Lambda function requires permissions for:
 3. **Monitor CloudWatch logs**
 4. **Verify SNS notifications**
 5. **Check Security Hub finding status**
+6. **Verify ticket creation**
 
 ### Local Testing
 
@@ -215,7 +291,9 @@ event = {
             {
                 'Id': 'test-finding-123',
                 'Severity': {'Label': 'HIGH'},
-                'ProductArn': 'arn:aws:securityhub:us-west-2::product/aws/securityhub'
+                'ProductArn': 'arn:aws:securityhub:us-west-2::product/aws/securityhub',
+                'Title': 'Test Security Finding',
+                'Description': 'This is a test finding for validation'
             }
         ]
     }
@@ -223,6 +301,35 @@ event = {
 
 result = lambda_handler(event, None)
 print(json.dumps(result, indent=2))
+"
+```
+
+### Test Ticket Integration
+
+```bash
+# Test ticket creation
+python -c "
+from ticket_integration_examples import TicketManager
+import json
+
+# Sample finding
+finding = {
+    'Id': 'test-finding-123',
+    'Severity': {'Label': 'HIGH'},
+    'Title': 'Test Security Finding',
+    'Description': 'This is a test finding for ticket validation'
+}
+
+# Create ticket manager
+ticket_manager = TicketManager()
+
+# Create ticket
+ticket_id = ticket_manager.create_ticket(finding, 'IAM')
+print(f'Created ticket: {ticket_id}')
+
+# Update ticket
+ticket_manager.update_ticket(ticket_id, 'RESOLVED', 'Test resolution')
+print(f'Updated ticket: {ticket_id}')
 "
 ```
 
@@ -235,6 +342,9 @@ print(json.dumps(result, indent=2))
 3. **Environment Variables**: Check that all required environment variables are set
 4. **Timeout Issues**: Increase the Lambda timeout for complex remediations
 5. **Memory Issues**: Increase the Lambda memory for resource-intensive operations
+6. **Ticket System**: Verify ticket system configuration and credentials
+7. **GitHub Integration**: Check GitHub token permissions and repository access
+8. **Jira Integration**: Verify Jira credentials and project access
 
 ### Debugging
 
@@ -242,6 +352,8 @@ print(json.dumps(result, indent=2))
 2. **Verify SNS Notifications**: Ensure notifications are being sent
 3. **Test Individual Functions**: Test specific remediation functions
 4. **Monitor Metrics**: Check CloudWatch metrics for performance issues
+5. **Check Ticket Dashboard**: Verify ticket creation and updates
+6. **Test Ticket Integrations**: Verify GitHub/Jira connectivity
 
 ## 🤝 Contributing
 
@@ -263,6 +375,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - AWS Lambda team for the serverless computing platform
 - AWS CloudWatch team for monitoring and logging capabilities
 - AWS SNS team for notification services
+- GitHub team for issue tracking integration
+- Atlassian team for Jira integration
 
 ## 📞 Support
 
@@ -271,6 +385,7 @@ For support and questions:
 - Check the CloudWatch logs for detailed error messages
 - Review the Security Hub documentation
 - Consult AWS Lambda best practices
+- Check ticket system documentation
 
 ## 🔄 Version History
 
@@ -278,6 +393,8 @@ For support and questions:
 - **v1.1.0**: Added cross-account support and enhanced error handling
 - **v1.2.0**: Added ARM64 support and comprehensive service coverage
 - **v1.3.0**: Added orchestrated workflows and multi-service remediations
+- **v1.4.0**: Added integrated ticket management system
+- **v1.5.0**: Added GitHub Issues and Jira integration
 
 ---
 
