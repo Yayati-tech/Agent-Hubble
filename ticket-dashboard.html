@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Hub Ticket Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .controls {
+            padding: 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .filter-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .filter-group label {
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .filter-group select, .filter-group input {
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .refresh-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+
+        .refresh-btn:hover {
+            background: #0056b3;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .stat-card h3 {
+            color: #6c757d;
+            font-size: 0.9em;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stat-card .number {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .stat-card .trend {
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+
+        .trend.up {
+            color: #28a745;
+        }
+
+        .trend.down {
+            color: #dc3545;
+        }
+
+        .tickets-container {
+            padding: 20px;
+        }
+
+        .ticket {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .ticket:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .ticket-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #f8f9fa;
+        }
+
+        .ticket-id {
+            font-weight: bold;
+            color: #495057;
+        }
+
+        .ticket-status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-created {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .status-in-progress {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+
+        .status-resolved {
+            background: #e8f5e8;
+            color: #388e3c;
+        }
+
+        .status-failed {
+            background: #ffebee;
+            color: #d32f2f;
+        }
+
+        .ticket-body {
+            padding: 20px;
+        }
+
+        .ticket-title {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .ticket-description {
+            color: #6c757d;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .ticket-meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .meta-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .meta-label {
+            font-size: 0.8em;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+
+        .meta-value {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .severity-high {
+            color: #dc3545;
+        }
+
+        .severity-medium {
+            color: #fd7e14;
+        }
+
+        .severity-low {
+            color: #28a745;
+        }
+
+        .ticket-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .action-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #1e7e34;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .btn-warning:hover {
+            background: #e0a800;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+
+        .error {
+            text-align: center;
+            padding: 40px;
+            color: #dc3545;
+        }
+
+        .no-tickets {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .filter-group {
+                justify-content: space-between;
+            }
+
+            .ticket-header {
+                flex-direction: column;
+                gap: 10px;
+                align-items: stretch;
+            }
+
+            .ticket-meta {
+                grid-template-columns: 1fr;
+            }
+
+            .ticket-actions {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Security Hub Ticket Dashboard</h1>
+            <p>Monitor and manage security findings and remediation tickets</p>
+        </div>
+
+        <div class="controls">
+            <div class="filter-group">
+                <label for="status-filter">Status:</label>
+                <select id="status-filter">
+                    <option value="">All Status</option>
+                    <option value="CREATED">Created</option>
+                    <option value="IN_PROGRESS">In Progress</option>
+                    <option value="RESOLVED">Resolved</option>
+                    <option value="FAILED">Failed</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="severity-filter">Severity:</label>
+                <select id="severity-filter">
+                    <option value="">All Severity</option>
+                    <option value="HIGH">High</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="LOW">Low</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="search-input">Search:</label>
+                <input type="text" id="search-input" placeholder="Search tickets...">
+            </div>
+
+            <button class="refresh-btn" onclick="refreshTickets()">Refresh</button>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <h3>Total Tickets</h3>
+                <div class="number" id="total-tickets">0</div>
+                <div class="trend up">+5 this week</div>
+            </div>
+            <div class="stat-card">
+                <h3>Open Tickets</h3>
+                <div class="number" id="open-tickets">0</div>
+                <div class="trend down">-2 this week</div>
+            </div>
+            <div class="stat-card">
+                <h3>Resolved</h3>
+                <div class="number" id="resolved-tickets">0</div>
+                <div class="trend up">+8 this week</div>
+            </div>
+            <div class="stat-card">
+                <h3>Failed</h3>
+                <div class="number" id="failed-tickets">0</div>
+                <div class="trend down">-1 this week</div>
+            </div>
+        </div>
+
+        <div class="tickets-container" id="tickets-container">
+            <div class="loading">Loading tickets...</div>
+        </div>
+    </div>
+
+    <script>
+        // Sample ticket data - replace with actual API calls
+        const sampleTickets = [
+            {
+                id: 'TICKET-001',
+                finding_id: 'FINDING-123',
+                title: 'S3 Bucket Public Access',
+                description: 'S3 bucket is publicly accessible and requires remediation',
+                severity: 'HIGH',
+                status: 'CREATED',
+                remediation_type: 'S3',
+                created_at: '2024-01-15T10:30:00Z',
+                updated_at: '2024-01-15T10:30:00Z'
+            },
+            {
+                id: 'TICKET-002',
+                finding_id: 'FINDING-124',
+                title: 'IAM User Access Key Rotation',
+                description: 'IAM user access keys have not been rotated in 90 days',
+                severity: 'MEDIUM',
+                status: 'IN_PROGRESS',
+                remediation_type: 'IAM',
+                created_at: '2024-01-14T15:45:00Z',
+                updated_at: '2024-01-15T09:20:00Z'
+            },
+            {
+                id: 'TICKET-003',
+                finding_id: 'FINDING-125',
+                title: 'RDS Encryption Disabled',
+                description: 'RDS instance is not encrypted at rest',
+                severity: 'HIGH',
+                status: 'RESOLVED',
+                remediation_type: 'RDS',
+                created_at: '2024-01-13T08:15:00Z',
+                updated_at: '2024-01-14T16:30:00Z'
+            }
+        ];
+
+        function loadTickets() {
+            const container = document.getElementById('tickets-container');
+            container.innerHTML = '<div class="loading">Loading tickets...</div>';
+
+            // Simulate API call delay
+            setTimeout(() => {
+                displayTickets(sampleTickets);
+                updateStats(sampleTickets);
+            }, 1000);
+        }
+
+        function displayTickets(tickets) {
+            const container = document.getElementById('tickets-container');
+            
+            if (tickets.length === 0) {
+                container.innerHTML = '<div class="no-tickets">No tickets found</div>';
+                return;
+            }
+
+            container.innerHTML = tickets.map(ticket => `
+                <div class="ticket">
+                    <div class="ticket-header">
+                        <span class="ticket-id">${ticket.id}</span>
+                        <span class="ticket-status status-${ticket.status.toLowerCase()}">${ticket.status}</span>
+                    </div>
+                    <div class="ticket-body">
+                        <div class="ticket-title">${ticket.title}</div>
+                        <div class="ticket-description">${ticket.description}</div>
+                        <div class="ticket-meta">
+                            <div class="meta-item">
+                                <div class="meta-label">Finding ID</div>
+                                <div class="meta-value">${ticket.finding_id}</div>
+                            </div>
+                            <div class="meta-item">
+                                <div class="meta-label">Severity</div>
+                                <div class="meta-value severity-${ticket.severity.toLowerCase()}">${ticket.severity}</div>
+                            </div>
+                            <div class="meta-item">
+                                <div class="meta-label">Type</div>
+                                <div class="meta-value">${ticket.remediation_type}</div>
+                            </div>
+                            <div class="meta-item">
+                                <div class="meta-label">Created</div>
+                                <div class="meta-value">${formatDate(ticket.created_at)}</div>
+                            </div>
+                        </div>
+                        <div class="ticket-actions">
+                            <button class="action-btn btn-primary" onclick="viewTicket('${ticket.id}')">View Details</button>
+                            <button class="action-btn btn-success" onclick="resolveTicket('${ticket.id}')">Resolve</button>
+                            <button class="action-btn btn-warning" onclick="updateTicket('${ticket.id}')">Update</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateStats(tickets) {
+            document.getElementById('total-tickets').textContent = tickets.length;
+            document.getElementById('open-tickets').textContent = tickets.filter(t => t.status === 'CREATED' || t.status === 'IN_PROGRESS').length;
+            document.getElementById('resolved-tickets').textContent = tickets.filter(t => t.status === 'RESOLVED').length;
+            document.getElementById('failed-tickets').textContent = tickets.filter(t => t.status === 'FAILED').length;
+        }
+
+        function formatDate(dateString) {
+            return new Date(dateString).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function refreshTickets() {
+            loadTickets();
+        }
+
+        function viewTicket(ticketId) {
+            alert(`Viewing ticket: ${ticketId}`);
+            // Implement ticket detail view
+        }
+
+        function resolveTicket(ticketId) {
+            if (confirm(`Resolve ticket: ${ticketId}?`)) {
+                alert(`Ticket ${ticketId} resolved successfully`);
+                refreshTickets();
+            }
+        }
+
+        function updateTicket(ticketId) {
+            alert(`Update ticket: ${ticketId}`);
+            // Implement ticket update functionality
+        }
+
+        // Filter functionality
+        document.getElementById('status-filter').addEventListener('change', filterTickets);
+        document.getElementById('severity-filter').addEventListener('change', filterTickets);
+        document.getElementById('search-input').addEventListener('input', filterTickets);
+
+        function filterTickets() {
+            const statusFilter = document.getElementById('status-filter').value;
+            const severityFilter = document.getElementById('severity-filter').value;
+            const searchFilter = document.getElementById('search-input').value.toLowerCase();
+
+            const filteredTickets = sampleTickets.filter(ticket => {
+                const statusMatch = !statusFilter || ticket.status === statusFilter;
+                const severityMatch = !severityFilter || ticket.severity === severityFilter;
+                const searchMatch = !searchFilter || 
+                    ticket.title.toLowerCase().includes(searchFilter) ||
+                    ticket.description.toLowerCase().includes(searchFilter) ||
+                    ticket.id.toLowerCase().includes(searchFilter);
+
+                return statusMatch && severityMatch && searchMatch;
+            });
+
+            displayTickets(filteredTickets);
+            updateStats(filteredTickets);
+        }
+
+        // Load tickets on page load
+        document.addEventListener('DOMContentLoaded', loadTickets);
+    </script>
+</body>
+</html>
