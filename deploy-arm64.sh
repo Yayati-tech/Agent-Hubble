@@ -49,6 +49,7 @@ cp enhanced-auto-remediation-lambda.py deployment-arm64/
 cat > deployment-arm64/requirements.txt << EOF
 boto3>=1.26.0
 botocore>=1.29.0
+requests>=2.28.0
 EOF
 
 # Install dependencies for ARM64
@@ -186,7 +187,7 @@ if aws lambda get-function --function-name $FUNCTION_NAME &> /dev/null; then
         --handler $HANDLER \
         --timeout $TIMEOUT \
         --memory-size $MEMORY_SIZE \
-        --environment Variables='{"BACKUP_ACCOUNT_ID":"002616177731","MANAGEMENT_ACCOUNT_ID":"013983952777","SNS_TOPIC_NAME":"'$SNS_TOPIC_NAME'"}'
+        --environment file://env-vars-github-app-corrected.json
 else
     echo -e "${YELLOW}📝 Creating new ARM64 Lambda function...${NC}"
     aws lambda create-function \
@@ -197,7 +198,7 @@ else
         --zip-file fileb://lambda-deployment-package-arm64.zip \
         --timeout $TIMEOUT \
         --memory-size $MEMORY_SIZE \
-        --environment Variables='{"BACKUP_ACCOUNT_ID":"002616177731","MANAGEMENT_ACCOUNT_ID":"013983952777","SNS_TOPIC_NAME":"'$SNS_TOPIC_NAME'"}'
+        --environment file://env-vars-github-app-corrected.json
 fi
 
 echo -e "${GREEN}✅ ARM64 Lambda function deployed: $FUNCTION_NAME${NC}"

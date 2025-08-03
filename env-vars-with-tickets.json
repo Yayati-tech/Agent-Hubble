@@ -1,0 +1,1 @@
+{ "Variables": { "SNS_TOPIC_NAME": "SecurityHubAutoRemediationAlerts", "BACKUP_ACCOUNT_ID": "002616177731", "MANAGEMENT_ACCOUNT_ID": "013983952777", "TICKET_TABLE_NAME": "SecurityHubTickets" } }

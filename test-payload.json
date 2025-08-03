@@ -1,0 +1,15 @@
+{
+  "detail": {
+    "findings": [
+      {
+        "Id": "test-finding-001",
+        "Title": "Test Security Finding",
+        "Description": "This is a test finding for ticketing system validation",
+        "Severity": {
+          "Label": "HIGH"
+        },
+        "ProductArn": "arn:aws:securityhub:us-west-2::product/aws/iam"
+      }
+    ]
+  }
+} 

@@ -1,0 +1,36 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "sts:AssumeRole"
+            ],
+            "Resource": [
+                "arn:aws:iam::*:role/SecurityHubAutoRemediationRole"
+            ],
+            "Condition": {
+                "StringEquals": {
+                    "sts:ExternalId": "SecurityHubAutoRemediation"
+                }
+            }
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "organizations:ListAccounts",
+                "organizations:DescribeOrganization"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "securityhub:GetFindings",
+                "securityhub:UpdateFindings",
+                "securityhub:BatchUpdateFindings"
+            ],
+            "Resource": "*"
+        }
+    ]
+}

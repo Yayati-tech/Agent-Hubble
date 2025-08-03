@@ -1,0 +1,257 @@
+name: Deploy Security Hub Lambda with Cryptography Layer
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'enhanced-auto-remediation-lambda.py'
+      - 'requirements.txt'
+      - '.github/workflows/deploy-lambda.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+env:
+  AWS_REGION: us-west-2
+  FUNCTION_NAME: enhanced-auto-remediation-lambda-arm64
+  LAYER_NAME: cryptography-layer
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Build Lambda Layer with Cryptography
+      run: |
+        echo "🔧 Building Lambda Layer with Cryptography..."
+        
+        # Create layer directory
+        mkdir -p lambda-layer/python
+        
+        # Install cryptography and PyJWT for Linux
+        pip install --target lambda-layer/python cryptography==3.4.8 PyJWT==2.8.0
+        
+        # Create layer package
+        cd lambda-layer
+        zip -r ../cryptography-layer.zip .
+        cd ..
+        
+        echo "✅ Lambda layer built successfully"
+
+    - name: Publish Lambda Layer
+      run: |
+        echo "🚀 Publishing Lambda Layer..."
+        
+        # Create the layer
+        LAYER_ARN=$(aws lambda publish-layer-version \
+          --layer-name ${{ env.LAYER_NAME }} \
+          --description "Cryptography and PyJWT for GitHub App authentication" \
+          --zip-file fileb://cryptography-layer.zip \
+          --compatible-runtimes python3.9 \
+          --compatible-architectures arm64 \
+          --region ${{ env.AWS_REGION }} \
+          --query 'LayerVersionArn' \
+          --output text)
+        
+        echo "✅ Layer created: $LAYER_ARN"
+        echo "LAYER_ARN=$LAYER_ARN" >> $GITHUB_ENV
+
+    - name: Build Lambda Deployment Package
+      run: |
+        echo "📦 Building Lambda Deployment Package..."
+        
+        # Create deployment directory
+        mkdir -p deployment-arm64
+        
+        # Copy Lambda function
+        cp enhanced-auto-remediation-lambda.py deployment-arm64/
+        
+        # Install dependencies (excluding cryptography as it's in the layer)
+        pip install --target deployment-arm64/ boto3 requests
+        
+        # Create deployment package
+        cd deployment-arm64
+        zip -r ../lambda-deployment-package-arm64.zip .
+        cd ..
+        
+        echo "✅ Deployment package created"
+
+    - name: Update Lambda Function Code
+      run: |
+        echo "🔄 Updating Lambda function code..."
+        
+        aws lambda update-function-code \
+          --function-name ${{ env.FUNCTION_NAME }} \
+          --zip-file fileb://lambda-deployment-package-arm64.zip \
+          --region ${{ env.AWS_REGION }}
+        
+        echo "✅ Lambda function code updated"
+
+    - name: Update Lambda Function Configuration
+      run: |
+        echo "⚙️ Updating Lambda function configuration..."
+        
+        # Update with layer and environment variables
+        aws lambda update-function-configuration \
+          --function-name ${{ env.FUNCTION_NAME }} \
+          --layers ${{ env.LAYER_ARN }} \
+          --environment file://env-vars-github-app-corrected.json \
+          --timeout 900 \
+          --memory-size 1024 \
+          --region ${{ env.AWS_REGION }}
+        
+        echo "✅ Lambda function configuration updated"
+
+    - name: Test Lambda Function
+      run: |
+        echo "🧪 Testing Lambda function..."
+        
+        # Create test payload
+        cat > test-payload.json << 'EOF'
+        {
+          "detail": {
+            "findings": [
+              {
+                "Id": "test-github-actions-001",
+                "Title": "Test GitHub Actions Deployment",
+                "Description": "This is a test finding for GitHub Actions deployment validation",
+                "Severity": {"Label": "HIGH"},
+                "ProductArn": "arn:aws:securityhub:us-west-2::product/aws/iam"
+              }
+            ]
+          }
+        }
+        EOF
+        
+        # Wait for function to be ready
+        sleep 30
+        
+        # Test the function
+        aws lambda invoke \
+          --function-name ${{ env.FUNCTION_NAME }} \
+          --payload file://test-payload.json \
+          --cli-binary-format raw-in-base64-out \
+          response.json \
+          --region ${{ env.AWS_REGION }}
+        
+        # Check response
+        if [ -f response.json ]; then
+          echo "📋 Lambda response:"
+          cat response.json
+          
+          # Check if response contains success indicators
+          if grep -q "statusCode.*200" response.json; then
+            echo "✅ Lambda function test successful!"
+          else
+            echo "❌ Lambda function test failed!"
+            exit 1
+          fi
+        else
+          echo "❌ No response file generated!"
+          exit 1
+        fi
+
+    - name: Create CloudWatch Dashboard
+      run: |
+        echo "📊 Creating CloudWatch dashboard..."
+        
+        cat > github-actions-dashboard.json << 'DASHBOARD_EOF'
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  ["AWS/Lambda", "Duration", "FunctionName", "${{ env.FUNCTION_NAME }}"],
+                  [".", "Errors", ".", "."],
+                  [".", "Invocations", ".", "."]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${{ env.AWS_REGION }}",
+                "title": "GitHub Actions Deployed Lambda Performance"
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  ["AWS/Lambda", "Throttles", "FunctionName", "${{ env.FUNCTION_NAME }}"]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${{ env.AWS_REGION }}",
+                "title": "Lambda Throttles"
+              }
+            }
+          ]
+        }
+        DASHBOARD_EOF
+        
+        aws cloudwatch put-dashboard \
+          --dashboard-name "GitHubActionsDashboard" \
+          --dashboard-body file://github-actions-dashboard.json \
+          --region ${{ env.AWS_REGION }}
+        
+        echo "✅ CloudWatch dashboard created"
+
+    - name: Cleanup
+      run: |
+        echo "🧹 Cleaning up temporary files..."
+        rm -f cryptography-layer.zip lambda-deployment-package-arm64.zip test-payload.json response.json github-actions-dashboard.json
+        rm -rf lambda-layer deployment-arm64
+
+    - name: Deployment Summary
+      run: |
+        echo ""
+        echo "🎉 Deployment Complete!"
+        echo "======================"
+        echo ""
+        echo "📋 Deployment Summary:"
+        echo "   ✅ Lambda layer with cryptography created"
+        echo "   ✅ Lambda function code updated"
+        echo "   ✅ Lambda function configuration updated"
+        echo "   ✅ Lambda function tested successfully"
+        echo "   ✅ CloudWatch dashboard created"
+        echo ""
+        echo "🔗 Resources:"
+        echo "   - Lambda Function: ${{ env.FUNCTION_NAME }}"
+        echo "   - Lambda Layer: ${{ env.LAYER_NAME }}"
+        echo "   - Region: ${{ env.AWS_REGION }}"
+        echo "   - CloudWatch Dashboard: GitHubActionsDashboard"
+        echo ""
+        echo "🚀 Next Steps:"
+        echo "   1. Monitor CloudWatch logs for GitHub issues"
+        echo "   2. Check GitHub repository for new issues"
+        echo "   3. Test with real Security Hub findings"
+        echo "" 
