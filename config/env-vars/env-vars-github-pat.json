@@ -1,0 +1,11 @@
+{
+    "Variables": {
+        "SNS_TOPIC_NAME": "SecurityHubAutoRemediationAlerts",
+        "BACKUP_ACCOUNT_ID": "002616177731",
+        "MANAGEMENT_ACCOUNT_ID": "013983952777",
+        "TICKET_TABLE_NAME": "SecurityHubTickets",
+        "GITHUB_AUTH_TYPE": "personal_access_token",
+        "GITHUB_AUTH_VALUE": "ghp_YOUR_PERSONAL_ACCESS_TOKEN_HERE",
+        "GITHUB_REPO": "Yayati-tech/Agent-Hubble"
+    }
+} 

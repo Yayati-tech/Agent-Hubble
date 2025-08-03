@@ -1,0 +1,267 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Enhanced Auto-Remediation Lambda for Security Hub'
+
+Parameters:
+  FunctionName:
+    Type: String
+    Default: 'enhanced-auto-remediation-lambda'
+    Description: 'Name of the Lambda function'
+  
+  Runtime:
+    Type: String
+    Default: 'python3.9'
+    Description: 'Python runtime version'
+  
+  Timeout:
+    Type: Number
+    Default: 900
+    Description: 'Lambda function timeout in seconds'
+  
+  MemorySize:
+    Type: Number
+    Default: 1024
+    Description: 'Lambda function memory size in MB'
+  
+  SNSTopicName:
+    Type: String
+    Default: 'SecurityHubAutoRemediationAlerts'
+    Description: 'SNS topic name for notifications'
+  
+  BackupAccountId:
+    Type: String
+    Default: '002616177731'
+    Description: 'Backup account ID'
+  
+  ManagementAccountId:
+    Type: String
+    Default: '013983952777'
+    Description: 'Management account ID'
+
+Resources:
+  # IAM Role for Lambda
+  SecurityHubAutoRemediationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${AWS::StackName}-SecurityHubAutoRemediationRole'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: SecurityHubAutoRemediationPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - securityhub:*
+                  - iam:*
+                  - s3:*
+                  - ec2:*
+                  - rds:*
+                  - lambda:*
+                  - kms:*
+                  - cloudwatch:*
+                  - cloudtrail:*
+                  - config:*
+                  - organizations:*
+                  - guardduty:*
+                  - inspector:*
+                  - ssm:*
+                  - macie2:*
+                  - wafv2:*
+                  - shield:*
+                  - acm:*
+                  - secretsmanager:*
+                  - cloudformation:*
+                  - apigateway:*
+                  - elasticache:*
+                  - dynamodb:*
+                  - eks:*
+                  - ecr:*
+                  - ecs:*
+                  - redshift:*
+                  - sagemaker:*
+                  - glue:*
+                  - sns:*
+                  - sts:*
+                Resource: '*'
+      Description: 'Role for Security Hub Auto-Remediation Lambda'
+
+  # SNS Topic for notifications
+  SecurityHubAutoRemediationSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Ref SNSTopicName
+      DisplayName: 'Security Hub Auto-Remediation Alerts'
+
+  # Lambda Function
+  SecurityHubAutoRemediationLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Ref FunctionName
+      Runtime: !Ref Runtime
+      Handler: enhanced-auto-remediation-lambda.lambda_handler
+      Role: !GetAtt SecurityHubAutoRemediationRole.Arn
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import logging
+          import os
+          from datetime import datetime, timezone, timedelta
+          from botocore.exceptions import ClientError, NoCredentialsError
+          
+          # Configure logging
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+          
+          # Environment variables
+          BACKUP_ACCOUNT_ID = os.environ.get('BACKUP_ACCOUNT_ID', '002616177731')
+          MANAGEMENT_ACCOUNT_ID = os.environ.get('MANAGEMENT_ACCOUNT_ID', '013983952777')
+          SNS_TOPIC_NAME = os.environ.get('SNS_TOPIC_NAME', 'SecurityHubAutoRemediationAlerts')
+          
+          def lambda_handler(event, context):
+              """
+              Enhanced auto-remediation function for Security Hub findings
+              """
+              logger.info(f"Processing event: {json.dumps(event)}")
+              
+              # Initialize AWS clients
+              try:
+                  securityhub = boto3.client('securityhub')
+                  iam = boto3.client('iam')
+                  s3 = boto3.client('s3')
+                  ec2 = boto3.client('ec2')
+                  sns = boto3.client('sns')
+                  cloudwatch = boto3.client('cloudwatch')
+              except NoCredentialsError:
+                  logger.error("No AWS credentials found")
+                  return {
+                      'statusCode': 500,
+                      'body': json.dumps({'error': 'No AWS credentials found'})
+                  }
+              
+              try:
+                  # Process Security Hub findings
+                  if 'detail' in event and 'findings' in event['detail']:
+                      findings = event['detail']['findings']
+                      
+                      for finding in findings:
+                          finding_id = finding.get('Id')
+                          severity = finding.get('Severity', {}).get('Label', '')
+                          
+                          logger.info(f"Processing finding: {finding_id} with severity: {severity}")
+                          
+                          # Send notification
+                          send_notification(finding_id, severity, "PROCESSED", sns)
+                  
+                  return {
+                      'statusCode': 200,
+                      'body': json.dumps({
+                          'message': 'Auto-remediation completed',
+                          'total_processed': len(findings) if 'findings' in event.get('detail', {}) else 0
+                      })
+                  }
+                  
+              except Exception as e:
+                  logger.error(f"Error in auto-remediation: {str(e)}")
+                  send_notification("SYSTEM", "CRITICAL", "SYSTEM_ERROR", sns, str(e))
+                  return {
+                      'statusCode': 500,
+                      'body': json.dumps({
+                          'error': str(e)
+                      })
+                  }
+              
+              def send_notification(finding_id, severity, status, sns, error_message=None):
+                  """Send notification via SNS"""
+                  try:
+                      message = {
+                          'finding_id': finding_id,
+                          'severity': severity,
+                          'status': status,
+                          'timestamp': datetime.now(timezone.utc).isoformat(),
+                          'remediation_type': 'auto-remediation-lambda'
+                      }
+                      
+                      if error_message:
+                          message['error'] = error_message
+                      
+                      sns.publish(
+                          TopicArn: !Ref SecurityHubAutoRemediationSNSTopic,
+                          Message: json.dumps(message),
+                          Subject: f"Security Hub Auto-Remediation: {status}"
+                      )
+                      logger.info(f"Sent notification for finding {finding_id}: {status}")
+                  except Exception as e:
+                      logger.error(f"Error sending notification: {str(e)}")
+      Timeout: !Ref Timeout
+      MemorySize: !Ref MemorySize
+      Environment:
+        Variables:
+          BACKUP_ACCOUNT_ID: !Ref BackupAccountId
+          MANAGEMENT_ACCOUNT_ID: !Ref ManagementAccountId
+          SNS_TOPIC_NAME: !Ref SNSTopicName
+
+  # CloudWatch Log Group
+  SecurityHubAutoRemediationLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${FunctionName}'
+      RetentionInDays: 30
+
+  # EventBridge Rule for Security Hub findings
+  SecurityHubFindingsRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub '${AWS::StackName}-SecurityHubFindingsRule'
+      Description: 'Rule to trigger auto-remediation for Security Hub findings'
+      EventPattern:
+        source:
+          - aws.securityhub
+        detail-type:
+          - Security Hub Findings - Imported
+        detail:
+          findings:
+            severity:
+              - HIGH
+              - CRITICAL
+              - MEDIUM
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt SecurityHubAutoRemediationLambda.Arn
+          Id: SecurityHubAutoRemediationTarget
+
+  # Permission for EventBridge to invoke Lambda
+  SecurityHubAutoRemediationPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref SecurityHubAutoRemediationLambda
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt SecurityHubFindingsRule.Arn
+
+Outputs:
+  LambdaFunctionArn:
+    Description: 'ARN of the Lambda function'
+    Value: !GetAtt SecurityHubAutoRemediationLambda.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-LambdaFunctionArn'
+  
+  SNSTopicArn:
+    Description: 'ARN of the SNS topic'
+    Value: !Ref SecurityHubAutoRemediationSNSTopic
+    Export:
+      Name: !Sub '${AWS::StackName}-SNSTopicArn'
+  
+  IAMRoleArn:
+    Description: 'ARN of the IAM role'
+    Value: !GetAtt SecurityHubAutoRemediationRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-IAMRoleArn'

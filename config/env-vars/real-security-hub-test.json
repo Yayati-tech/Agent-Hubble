@@ -1,0 +1,100 @@
+{
+  "detail": {
+    "findings": [
+      {
+        "Id": "arn:aws:inspector2:us-west-2:002616177731:finding/92a4c01a5f8969e533411b04cfac5f0f",
+        "Title": "CVE-2023-0286 - cryptography",
+        "Description": "There is a type confusion vulnerability relating to X.400 address processing inside an X.509 GeneralName. X.400 addresses were parsed as an ASN1_STRING but the public structure definition for GENERAL_NAME incorrectly specified the type of the x400Address field as ASN1_TYPE. This field is subsequently interpreted by the OpenSSL function GENERAL_NAME_cmp as an ASN1_TYPE rather than an ASN1_STRING.",
+        "Severity": {
+          "Label": "HIGH",
+          "Normalized": 70
+        },
+        "ProductArn": "arn:aws:securityhub:us-west-2::product/aws/inspector",
+        "Types": [
+          "Software and Configuration Checks/Vulnerabilities/CVE"
+        ],
+        "CreatedAt": "2025-08-03T04:11:58.097Z",
+        "UpdatedAt": "2025-08-03T05:37:15.301Z",
+        "WorkflowState": "NEW",
+        "RecordState": "ACTIVE",
+        "AwsAccountId": "002616177731",
+        "Region": "us-west-2",
+        "Resources": [
+          {
+            "Type": "AwsLambdaFunction",
+            "Id": "arn:aws:lambda:us-west-2:002616177731:function:enhanced-auto-remediation-lambda-arm64:$LATEST",
+            "Partition": "aws",
+            "Region": "us-west-2"
+          }
+        ],
+        "Vulnerabilities": [
+          {
+            "Id": "CVE-2023-0286",
+            "VulnerablePackages": [
+              {
+                "Name": "cryptography",
+                "Version": "3.4.8",
+                "FixedInVersion": "39.0.1"
+              }
+            ],
+            "Cvss": [
+              {
+                "Version": "3.1",
+                "BaseScore": 7.4,
+                "BaseVector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:H"
+              }
+            ],
+            "FixAvailable": "YES"
+          }
+        ]
+      },
+      {
+        "Id": "arn:aws:inspector2:us-west-2:002616177731:finding/643926011232712293dd2f6cd47c4fe2",
+        "Title": "CVE-2023-49083 - cryptography",
+        "Description": "cryptography is a package designed to expose cryptographic primitives and recipes to Python developers. Calling `load_pem_pkcs7_certificates` or `load_der_pkcs7_certificates` could lead to a NULL-pointer dereference and segfault.",
+        "Severity": {
+          "Label": "HIGH",
+          "Normalized": 70
+        },
+        "ProductArn": "arn:aws:securityhub:us-west-2::product/aws/inspector",
+        "Types": [
+          "Software and Configuration Checks/Vulnerabilities/CVE"
+        ],
+        "CreatedAt": "2025-08-03T04:11:58.097Z",
+        "UpdatedAt": "2025-08-03T05:37:15.301Z",
+        "WorkflowState": "NEW",
+        "RecordState": "ACTIVE",
+        "AwsAccountId": "002616177731",
+        "Region": "us-west-2",
+        "Resources": [
+          {
+            "Type": "AwsLambdaFunction",
+            "Id": "arn:aws:lambda:us-west-2:002616177731:function:enhanced-auto-remediation-lambda-arm64:$LATEST",
+            "Partition": "aws",
+            "Region": "us-west-2"
+          }
+        ],
+        "Vulnerabilities": [
+          {
+            "Id": "CVE-2023-49083",
+            "VulnerablePackages": [
+              {
+                "Name": "cryptography",
+                "Version": "3.4.8",
+                "FixedInVersion": "41.0.6"
+              }
+            ],
+            "Cvss": [
+              {
+                "Version": "3.1",
+                "BaseScore": 7.5,
+                "BaseVector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+              }
+            ],
+            "FixAvailable": "YES"
+          }
+        ]
+      }
+    ]
+  }
+} 

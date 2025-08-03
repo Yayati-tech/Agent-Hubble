@@ -1,1 +1,0 @@
-{"statusCode": 200, "body": "{\"remediated_findings\": [], \"failed_remediations\": [\"test-finding-001\"], \"created_tickets\": [\"TICKET-20250803041344\"], \"total_findings\": 1}"}

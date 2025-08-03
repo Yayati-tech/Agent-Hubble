@@ -1,0 +1,16 @@
+FROM public.ecr.aws/lambda/python:3.9
+
+# Install build dependencies
+RUN yum install -y gcc openssl-devel libffi-devel
+
+# Create build directory
+WORKDIR /build
+
+# Copy requirements
+COPY requirements-crypto.txt .
+
+# Install cryptography and PyJWT
+RUN pip install -r requirements-crypto.txt -t python/
+
+# Copy the python directory to output
+CMD cp -r python /output/

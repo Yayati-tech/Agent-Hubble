@@ -1,9 +1,0 @@
-{
-  "BACKUP_ACCOUNT_ID": "002616177731",
-  "MANAGEMENT_ACCOUNT_ID": "013983952777",
-  "SNS_TOPIC_NAME": "SecurityHubAutoRemediationAlerts",
-  "AWS_REGION": "us-west-2",
-  "LOG_LEVEL": "INFO",
-  "TIMEOUT": "900",
-  "MEMORY_SIZE": "1024"
-}
