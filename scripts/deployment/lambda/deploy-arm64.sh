@@ -50,6 +50,8 @@ cat > deployment-arm64/requirements.txt << EOF
 boto3>=1.26.0
 botocore>=1.29.0
 requests>=2.28.0
+PyJWT>=2.8.0
+cryptography>=42.0.2
 EOF
 
 # Install dependencies for ARM64

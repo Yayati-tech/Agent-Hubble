@@ -582,6 +582,547 @@ async def flag_potential_false_positive(finding: Finding, confidence: float):
 
 ---
 
+## 🏗️ **False Positive Analysis Lambda Architecture**
+
+### **Overview**
+
+The False Positive Analysis Lambda is a dedicated function that analyzes Security Hub findings to determine if they are false positives. This separation allows for optimized resource allocation, independent scaling, and better maintainability.
+
+### **Architecture Design**
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Main Lambda   │───▶│   False Positive│───▶│   Main Lambda   │
+│   (Orchestrator)│    │   Analysis      │    │   (Remediation) │
+│                 │    │   Lambda        │    │                 │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+                                │
+                                ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   ML Models     │    │   Pattern DB    │    │   Analytics     │
+│   (SageMaker)   │    │   (DynamoDB)    │    │   (CloudWatch)  │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+### **Lambda Function Specifications**
+
+#### **Configuration**
+```yaml
+FunctionName: "false-positive-analysis-lambda"
+Runtime: "python3.9"
+Handler: "false_positive_analysis.lambda_handler"
+Timeout: 300  # 5 minutes for ML processing
+MemorySize: 2048  # 2GB for ML workloads
+Environment:
+  Variables:
+    ML_MODEL_ENDPOINT: "false-positive-classifier"
+    PATTERN_DB_TABLE: "false-positive-patterns"
+    ANALYTICS_BUCKET: "false-positive-analytics"
+```
+
+#### **Core Components**
+
+1. **Environment Analyzer**
+   - Detects environment from resource ARNs and tags
+   - Assesses risk based on environment context
+   - Provides environment-based scoring
+
+2. **ML Classification Engine**
+   - Loads pre-trained models from SageMaker
+   - Extracts features from findings
+   - Returns classification with confidence scores
+
+3. **Pattern Recognition Engine**
+   - Analyzes historical patterns
+   - Calculates similarity scores
+   - Identifies recurring false positive patterns
+
+4. **Business Context Analyzer**
+   - Checks critical resource lists
+   - Validates business exceptions
+   - Assesses business impact
+
+5. **Temporal Analyzer**
+   - Detects temporary issues
+   - Identifies maintenance windows
+   - Analyzes recurrence patterns
+
+### **Input/Output Schema**
+
+#### **Input Event**
+```json
+{
+  "finding": {
+    "Id": "arn:aws:securityhub:us-west-2:123456789012:subscription/aws-foundational-security-best-practices/v/1.0.0/IAM.1/finding/12345678-1234-1234-1234-123456789012",
+    "ProductArn": "arn:aws:securityhub:us-west-2::product/aws/securityhub",
+    "GeneratorId": "aws-foundational-security-best-practices/v/1.0.0/IAM.1",
+    "AwsAccountId": "123456789012",
+    "Types": ["Software and Configuration Checks/Industry and Regulatory Standards/AWS-Foundational-Security-Best-Practices"],
+    "FirstObservedAt": "2023-01-01T00:00:00.000Z",
+    "LastObservedAt": "2023-01-01T00:00:00.000Z",
+    "Severity": {
+      "Label": "MEDIUM",
+      "Original": "MEDIUM"
+    },
+    "Title": "IAM.1 IAM root user access key should not exist",
+    "Description": "This control checks whether the root user access key exists.",
+    "Resources": [
+      {
+        "Type": "AwsAccount",
+        "Id": "arn:aws:iam::123456789012:root",
+        "Region": "us-west-2",
+        "Tags": {
+          "Environment": "development",
+          "Project": "test-project"
+        }
+      }
+    ]
+  },
+  "analysis_options": {
+    "include_ml_classification": true,
+    "include_pattern_analysis": true,
+    "include_business_context": true,
+    "include_temporal_analysis": true
+  }
+}
+```
+
+#### **Output Response**
+```json
+{
+  "analysis_id": "fp-analysis-12345678-1234-1234-1234-123456789012",
+  "finding_id": "arn:aws:securityhub:us-west-2:123456789012:subscription/aws-foundational-security-best-practices/v/1.0.0/IAM.1/finding/12345678-1234-1234-1234-123456789012",
+  "classification": {
+    "is_false_positive": true,
+    "confidence": 0.85,
+    "reasoning": "Finding is in development environment; Similar findings were previously false positives; Finding matches known business exception pattern",
+    "recommended_action": "SUPPRESS"
+  },
+  "environment_analysis": {
+    "environment": "development",
+    "risk_level": "LOW",
+    "is_production": false,
+    "requires_immediate_action": false
+  },
+  "ml_classification": {
+    "model_version": "1.0.0",
+    "features_used": ["environment_score", "historical_pattern_score", "business_exception_score"],
+    "feature_scores": [0.9, 0.8, 0.7]
+  },
+  "pattern_analysis": {
+    "similar_findings_count": 15,
+    "false_positive_rate": 0.87,
+    "pattern_confidence": 0.82,
+    "pattern_reasoning": "87% of similar findings were false positives"
+  },
+  "business_context": {
+    "is_critical_resource": false,
+    "has_business_exception": true,
+    "business_impact": "LOW",
+    "requires_business_review": false
+  },
+  "temporal_analysis": {
+    "is_temporary": false,
+    "recurrence_pattern": "NONE",
+    "in_maintenance_window": false,
+    "temporal_risk_level": "LOW"
+  },
+  "processing_metadata": {
+    "processing_time_ms": 1250,
+    "models_used": ["environment_analyzer", "ml_classifier", "pattern_recognizer"],
+    "timestamp": "2023-01-01T00:00:00.000Z"
+  }
+}
+```
+
+### **Implementation Code**
+
+#### **Main Handler**
+```python
+import json
+import boto3
+import logging
+from typing import Dict, Any
+from datetime import datetime
+
+# Initialize logging
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+# Initialize AWS clients
+sagemaker = boto3.client('sagemaker')
+dynamodb = boto3.client('dynamodb')
+cloudwatch = boto3.client('cloudwatch')
+
+class FalsePositiveAnalysisLambda:
+    def __init__(self):
+        self.environment_analyzer = EnvironmentAnalyzer()
+        self.ml_classifier = MLClassifier()
+        self.pattern_recognizer = PatternRecognitionEngine()
+        self.business_analyzer = BusinessContextAnalyzer()
+        self.temporal_analyzer = TemporalAnalyzer()
+    
+    async def analyze_finding(self, finding: Dict[str, Any], options: Dict[str, Any]) -> Dict[str, Any]:
+        """Main analysis function"""
+        start_time = datetime.now()
+        analysis_id = f"fp-analysis-{finding['Id'].split('/')[-1]}"
+        
+        try:
+            # Environment analysis
+            environment_analysis = await self.environment_analyzer.analyze_environment_context(finding)
+            
+            # ML classification (if enabled)
+            ml_classification = None
+            if options.get('include_ml_classification', True):
+                ml_classification = await self.ml_classifier.classify_finding(finding)
+            
+            # Pattern analysis (if enabled)
+            pattern_analysis = None
+            if options.get('include_pattern_analysis', True):
+                pattern_analysis = await self.pattern_recognizer.analyze_historical_patterns(finding)
+            
+            # Business context analysis (if enabled)
+            business_context = None
+            if options.get('include_business_context', True):
+                business_context = await self.business_analyzer.analyze_business_context(finding)
+            
+            # Temporal analysis (if enabled)
+            temporal_analysis = None
+            if options.get('include_temporal_analysis', True):
+                temporal_analysis = await self.temporal_analyzer.analyze_temporal_context(finding)
+            
+            # Combine results for final classification
+            classification = self.combine_analysis_results(
+                environment_analysis, ml_classification, pattern_analysis, 
+                business_context, temporal_analysis
+            )
+            
+            # Calculate processing time
+            processing_time = (datetime.now() - start_time).total_seconds() * 1000
+            
+            return {
+                "analysis_id": analysis_id,
+                "finding_id": finding['Id'],
+                "classification": classification,
+                "environment_analysis": environment_analysis.to_dict(),
+                "ml_classification": ml_classification.to_dict() if ml_classification else None,
+                "pattern_analysis": pattern_analysis.to_dict() if pattern_analysis else None,
+                "business_context": business_context.to_dict() if business_context else None,
+                "temporal_analysis": temporal_analysis.to_dict() if temporal_analysis else None,
+                "processing_metadata": {
+                    "processing_time_ms": processing_time,
+                    "models_used": self.get_models_used(options),
+                    "timestamp": datetime.now().isoformat()
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Error analyzing finding {finding['Id']}: {str(e)}")
+            raise
+    
+    def combine_analysis_results(self, environment_analysis, ml_classification, 
+                               pattern_analysis, business_context, temporal_analysis):
+        """Combine all analysis results for final classification"""
+        
+        # Calculate combined confidence score
+        confidence_scores = []
+        reasoning_parts = []
+        
+        # Environment-based scoring
+        if environment_analysis:
+            env_score = self.calculate_environment_score(environment_analysis)
+            confidence_scores.append(env_score)
+            if env_score > 0.8:
+                reasoning_parts.append("Finding is in non-production environment")
+        
+        # ML-based scoring
+        if ml_classification:
+            confidence_scores.append(ml_classification.confidence)
+            if ml_classification.confidence > 0.7:
+                reasoning_parts.append(ml_classification.reasoning)
+        
+        # Pattern-based scoring
+        if pattern_analysis:
+            pattern_score = pattern_analysis.pattern_confidence
+            confidence_scores.append(pattern_score)
+            if pattern_score > 0.8:
+                reasoning_parts.append(pattern_analysis.pattern_reasoning)
+        
+        # Business context scoring
+        if business_context:
+            business_score = self.calculate_business_score(business_context)
+            confidence_scores.append(business_score)
+            if business_context.has_business_exception:
+                reasoning_parts.append("Finding matches known business exception")
+        
+        # Temporal scoring
+        if temporal_analysis:
+            temporal_score = self.calculate_temporal_score(temporal_analysis)
+            confidence_scores.append(temporal_score)
+            if temporal_analysis.is_temporary:
+                reasoning_parts.append("Finding appears to be temporary")
+        
+        # Calculate final confidence
+        final_confidence = sum(confidence_scores) / len(confidence_scores) if confidence_scores else 0.5
+        
+        # Determine if false positive
+        is_false_positive = final_confidence > 0.7
+        
+        # Determine recommended action
+        if final_confidence > 0.9:
+            recommended_action = "SUPPRESS"
+        elif final_confidence > 0.7:
+            recommended_action = "DOWNGRADE"
+        else:
+            recommended_action = "REVIEW"
+        
+        return {
+            "is_false_positive": is_false_positive,
+            "confidence": final_confidence,
+            "reasoning": "; ".join(reasoning_parts) if reasoning_parts else "No specific indicators",
+            "recommended_action": recommended_action
+        }
+    
+    def calculate_environment_score(self, environment_analysis):
+        """Calculate environment-based false positive score"""
+        if environment_analysis.environment in ['test', 'development', 'staging']:
+            return 0.9
+        elif environment_analysis.environment == 'production':
+            return 0.1
+        else:
+            return 0.5
+    
+    def calculate_business_score(self, business_context):
+        """Calculate business context-based false positive score"""
+        if business_context.has_business_exception:
+            return 0.8
+        elif business_context.is_critical_resource:
+            return 0.2
+        else:
+            return 0.5
+    
+    def calculate_temporal_score(self, temporal_analysis):
+        """Calculate temporal-based false positive score"""
+        if temporal_analysis.is_temporary:
+            return 0.8
+        elif temporal_analysis.in_maintenance_window:
+            return 0.7
+        else:
+            return 0.5
+    
+    def get_models_used(self, options):
+        """Get list of models used in analysis"""
+        models = ["environment_analyzer"]
+        if options.get('include_ml_classification', True):
+            models.append("ml_classifier")
+        if options.get('include_pattern_analysis', True):
+            models.append("pattern_recognizer")
+        if options.get('include_business_context', True):
+            models.append("business_analyzer")
+        if options.get('include_temporal_analysis', True):
+            models.append("temporal_analyzer")
+        return models
+
+# Initialize the analyzer
+analyzer = FalsePositiveAnalysisLambda()
+
+def lambda_handler(event, context):
+    """Main Lambda handler"""
+    try:
+        # Extract finding and options from event
+        finding = event.get('finding')
+        options = event.get('analysis_options', {})
+        
+        if not finding:
+            raise ValueError("No finding provided in event")
+        
+        # Perform analysis
+        result = await analyzer.analyze_finding(finding, options)
+        
+        # Send metrics to CloudWatch
+        send_metrics(result)
+        
+        return {
+            'statusCode': 200,
+            'body': json.dumps(result)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in lambda_handler: {str(e)}")
+        return {
+            'statusCode': 500,
+            'body': json.dumps({'error': str(e)})
+        }
+
+def send_metrics(result):
+    """Send metrics to CloudWatch"""
+    try:
+        cloudwatch.put_metric_data(
+            Namespace='Agent-Hubble/FalsePositiveAnalysis',
+            MetricData=[
+                {
+                    'MetricName': 'ProcessingTime',
+                    'Value': result['processing_metadata']['processing_time_ms'],
+                    'Unit': 'Milliseconds'
+                },
+                {
+                    'MetricName': 'ConfidenceScore',
+                    'Value': result['classification']['confidence'],
+                    'Unit': 'None'
+                },
+                {
+                    'MetricName': 'IsFalsePositive',
+                    'Value': 1 if result['classification']['is_false_positive'] else 0,
+                    'Unit': 'Count'
+                }
+            ]
+        )
+    except Exception as e:
+        logger.warning(f"Failed to send metrics: {str(e)}")
+```
+
+### **Integration with Main Lambda**
+
+#### **Modified Main Lambda Handler**
+```python
+# In the main Lambda function, add this integration
+async def invoke_false_positive_analysis(finding: Dict[str, Any]) -> Dict[str, Any]:
+    """Invoke false positive analysis Lambda"""
+    lambda_client = boto3.client('lambda')
+    
+    try:
+        response = lambda_client.invoke(
+            FunctionName='false-positive-analysis-lambda',
+            InvocationType='RequestResponse',
+            Payload=json.dumps({
+                'finding': finding,
+                'analysis_options': {
+                    'include_ml_classification': True,
+                    'include_pattern_analysis': True,
+                    'include_business_context': True,
+                    'include_temporal_analysis': True
+                }
+            })
+        )
+        
+        result = json.loads(response['Payload'].read())
+        return result
+        
+    except Exception as e:
+        logger.error(f"Failed to invoke false positive analysis: {str(e)}")
+        # Return default analysis if invocation fails
+        return {
+            'classification': {
+                'is_false_positive': False,
+                'confidence': 0.5,
+                'reasoning': 'Analysis failed, defaulting to non-false positive',
+                'recommended_action': 'REVIEW'
+            }
+        }
+
+# In the main lambda_handler, modify the finding processing
+for finding in findings:
+    finding_id = finding.get('Id')
+    severity = finding.get('Severity', {}).get('Label', '')
+    
+    logger.info(f"Processing finding: {finding_id} with severity: {severity}")
+    
+    # Get false positive analysis
+    fp_analysis = await invoke_false_positive_analysis(finding)
+    
+    # Handle based on false positive classification
+    if fp_analysis['classification']['is_false_positive']:
+        confidence = fp_analysis['classification']['confidence']
+        action = fp_analysis['classification']['recommended_action']
+        
+        if action == 'SUPPRESS' and confidence > 0.9:
+            # Suppress high-confidence false positive
+            await suppress_finding(finding, fp_analysis)
+            logger.info(f"Suppressed false positive finding: {finding_id}")
+            
+        elif action == 'DOWNGRADE' and confidence > 0.7:
+            # Downgrade medium-confidence false positive
+            await downgrade_finding(finding, fp_analysis)
+            logger.info(f"Downgraded false positive finding: {finding_id}")
+            
+        else:
+            # Flag for manual review
+            await flag_for_manual_review(finding, fp_analysis)
+            logger.info(f"Flagged finding for manual review: {finding_id}")
+            
+    else:
+        # Proceed with normal remediation
+        await remediate_finding(finding)
+```
+
+### **Deployment and Configuration**
+
+#### **CloudFormation Template**
+```yaml
+# Add to existing CloudFormation template
+FalsePositiveAnalysisLambda:
+  Type: AWS::Lambda::Function
+  Properties:
+    FunctionName: false-positive-analysis-lambda
+    Runtime: python3.9
+    Handler: false_positive_analysis.lambda_handler
+    Code:
+      ZipFile: |
+        # Lambda function code here
+    Timeout: 300
+    MemorySize: 2048
+    Environment:
+      Variables:
+        ML_MODEL_ENDPOINT: !Ref MLModelEndpoint
+        PATTERN_DB_TABLE: !Ref PatternDBTable
+        ANALYTICS_BUCKET: !Ref AnalyticsBucket
+    Role: !GetAtt FalsePositiveAnalysisRole.Arn
+
+FalsePositiveAnalysisRole:
+  Type: AWS::IAM::Role
+  Properties:
+    RoleName: FalsePositiveAnalysisRole
+    AssumeRolePolicyDocument:
+      Version: '2012-10-17'
+      Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+    ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+    Policies:
+      - PolicyName: FalsePositiveAnalysisPolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - sagemaker:InvokeEndpoint
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:Query
+                - cloudwatch:PutMetricData
+              Resource: '*'
+```
+
+### **Monitoring and Analytics**
+
+#### **CloudWatch Metrics**
+- Processing time per analysis
+- Confidence score distribution
+- False positive detection rate
+- Model accuracy metrics
+- Error rates and failures
+
+#### **Dashboards**
+- Real-time analysis performance
+- False positive reduction effectiveness
+- Model performance tracking
+- Cost optimization metrics
+
+---
+
 **Status**: ✅ **FALSE POSITIVE REDUCTION GUIDE COMPLETE**  
 **Next Action**: Begin Phase 1 implementation with environment detection
 

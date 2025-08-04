@@ -16,33 +16,56 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 def create_simple_jwt(payload, private_key, algorithm='RS256'):
-    """Create a simple JWT token without cryptography dependency"""
+    """Create a JWT token with proper cryptography support"""
     try:
         # Try to use PyJWT with cryptography first
         import jwt
-        return jwt.encode(payload, private_key, algorithm=algorithm)
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric import rsa
+        
+        # If private_key is a string, try to load it as PEM
+        if isinstance(private_key, str):
+            try:
+                # Try to load as PEM private key
+                key = serialization.load_pem_private_key(
+                    private_key.encode(),
+                    password=None
+                )
+                return jwt.encode(payload, key, algorithm=algorithm)
+            except Exception as pem_error:
+                logger.warning(f"Failed to load PEM key: {str(pem_error)}")
+                # Fall back to using the key as-is
+                return jwt.encode(payload, private_key, algorithm=algorithm)
+        else:
+            return jwt.encode(payload, private_key, algorithm=algorithm)
+            
+    except ImportError as e:
+        logger.error(f"PyJWT or cryptography not available: {str(e)}")
+        return _create_fallback_jwt(payload, private_key)
     except Exception as e:
         logger.error(f"PyJWT failed: {str(e)}")
-        # Fallback to simple JWT implementation
-        header = {
-            "alg": "RS256",
-            "typ": "JWT"
-        }
-        
-        # Encode header and payload
-        header_b64 = base64.urlsafe_b64encode(json.dumps(header).encode()).rstrip(b'=').decode()
-        payload_b64 = base64.urlsafe_b64encode(json.dumps(payload).encode()).rstrip(b'=').decode()
-        
-        # Create signature (simplified - this is not cryptographically secure)
-        # In production, you should use proper RSA signing
-        message = f"{header_b64}.{payload_b64}"
-        signature = base64.urlsafe_b64encode(hmac.new(
-            private_key.encode(), 
-            message.encode(), 
-            hashlib.sha256
-        ).digest()).rstrip(b'=').decode()
-        
-        return f"{header_b64}.{payload_b64}.{signature}"
+        return _create_fallback_jwt(payload, private_key)
+
+def _create_fallback_jwt(payload, private_key):
+    """Fallback JWT implementation when cryptography is not available"""
+    header = {
+        "alg": "HS256",  # Changed to HS256 for HMAC
+        "typ": "JWT"
+    }
+    
+    # Encode header and payload
+    header_b64 = base64.urlsafe_b64encode(json.dumps(header).encode()).rstrip(b'=').decode()
+    payload_b64 = base64.urlsafe_b64encode(json.dumps(payload).encode()).rstrip(b'=').decode()
+    
+    # Create signature using HMAC-SHA256
+    message = f"{header_b64}.{payload_b64}"
+    signature = base64.urlsafe_b64encode(hmac.new(
+        private_key.encode() if isinstance(private_key, str) else str(private_key).encode(), 
+        message.encode(), 
+        hashlib.sha256
+    ).digest()).rstrip(b'=').decode()
+    
+    return f"{header_b64}.{payload_b64}.{signature}"
 
 # Environment variables
 BACKUP_ACCOUNT_ID = os.environ.get('BACKUP_ACCOUNT_ID', '002616177731')
@@ -101,8 +124,8 @@ class GitHubAuthManager:
                     'Accept': 'application/vnd.github.v3+json'
                 }
             
-            # If no PAT, try GitHub App (but this will likely fail without proper cryptography)
-            logger.warning("No GitHub PAT found, attempting GitHub App authentication (may fail)")
+            # If no PAT, try GitHub App with proper cryptography support
+            logger.info("No GitHub PAT found, attempting GitHub App authentication with cryptography")
             now = int(time.time())
             payload = {
                 'iat': now,
@@ -111,11 +134,14 @@ class GitHubAuthManager:
             }
             
             try:
-                # Use simple JWT implementation
+                # Use enhanced JWT implementation with cryptography
                 token = create_simple_jwt(payload, private_key, 'RS256')
+                if not token:
+                    logger.error("JWT token creation failed")
+                    return None
             except Exception as jwt_error:
                 logger.error(f"JWT encoding failed: {str(jwt_error)}")
-                logger.error("This is likely due to missing cryptography module. Falling back to DynamoDB tickets.")
+                logger.error("GitHub App authentication failed. Falling back to DynamoDB tickets.")
                 return None
             
             # Get installation access token
