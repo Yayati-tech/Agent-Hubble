@@ -1,0 +1,11 @@
+{
+    "Variables": {
+        "GITHUB_AUTH_TYPE": "github_app",
+        "GITHUB_REPO": "Yayati-tech/Agent-Hubble",
+        "MANAGEMENT_ACCOUNT_ID": "013983952777",
+        "SNS_TOPIC_NAME": "SecurityHubAutoRemediationAlerts",
+        "TICKET_TABLE_NAME": "SecurityHubTickets",
+        "BACKUP_ACCOUNT_ID": "002616177731",
+        "GITHUB_AUTH_VALUE": "{\"app_id\":\"1719742\",\"installation_id\":\"78968584\",\"private_key\":\"-----BEGIN RSA PRIVATE KEY-----\\nMIIEpAIBAAKCAQEAy2bsfBlI7YeAos+UxcDAMhzU6HCkap3UhvC4T7I3rmCI0E/Y\\nSlr8CSWr7U+hqp8ZtBJeq/aqmylExui2o/lY69i3T1ypydxCxbNjBWNfAAT+wXwQ\\ndxQK6lA7gIvA3bvdu09G3OYXBy7Ze5sMabo/iqAeLoU5pX6U7cbIbMO97Nf8q/8N\\ns+vetgqBBwHyVOizAWjhEwO3GkVR9BpABVxTQFS2GlAet7ec0SFGwVV+C/hQF7Xm\\nzsqnQbSi4mp2GQ9REg3AzBMnEY+idTUF41SrTB0RC3XxMkkm5K+k0nbh30sRgVMq\\nm3ZWG2ns7993MEltTLMemO+vDlDsOFEwY/j+kwIDAQABAoIBAQCjKeEye6YAxN3v\\nvMz/BWwnxvETtKhvzkQaKyfu5mu8OjwFvscmfm4HeGy+ZU6ubApWZRYEpE6fQS+m\\n0C8SwocOSj5iL1cUUthNd2VLgTdH8LnbxAYBP9axt8LDj1gbhwSLqUCTGxAF9xMH\\nEI2Ykos+TMtpTf28QBp/0yIb/blxLzMeP2H7c69zqxxYoa3A4yZdfI0cS7hB+Ck1\\n7nlNeCmIHXf6OhyuR9+YTV+b1drUD2bWaOCcZxV71MOPQvkvrEJSJFFVWMszeqDK\\n9YM62h2hkmescf8dvfKGNIxR0BuPG+IPeEk36p8U+KQHOyEWdc0+pBsU5fA1o7so\\nD8rQbbFBAoGBAPENq8CVBaiaEy1Z1a0nz7MKYzoZY8QKlLHTxyuCCtloqIzZEBUQ\\nZLLkg4ZvZP9KsoRho+dfyLraobKITK4U3+uMobGTCGjIoiiWTwOVR1fS/ED2emNA\\nA8GAjq0v+lwdZd3YxNjhmzdAHifht7TqLB70tIKTW4DVAoQ44630HDm5AoGBANgD\\nmVzYXHLOVWfgXvDD6WsrRHnNJwHvLdWaUSzNZ9dz3zF05VB0U+Dns/nkLGqHBbzh\\nLTag0Hqd/brxbdB+8sBu2oqgrJ9pLKRdM9Aqp2UkKiz6dwIsVHiEkHKHmsjh8H5N\\nLEhqHRP9Z0SUJh8FRweJ8v390lRiJuucqOJTifCrAoGBALNaUqJ1vsIV8ZLatouh\\nhX5XikDeR0bEAKLXSefrWBsvLcmub7LcgbBBKkNKesEgWPb6lzM+J2Iv7gOiOjuE\\nOJ9QAbbYCXe9YDoGrD+kQHLt/tZvDdzu8lx1RLNDcWo8TWDlOoGMSyquwEE4RrGL\\nUsytkeldrsWKt9adZXo2mRGxAoGATs45VALm70dRJx1W5ZVDgcJ+L8VlVrJQUV4E\\nAUlKefKe2WchBZH6y9Eb+q2AeriZokev+/79L86Vs27Ctk6p9wQ6HFrzvxBapfgO\\noAH/oclozZHues97XaBXJkFMeb7bwugaoKx9wT4wP3eg1K5TNG/iQ0EnS3unYUt8\\n3VzGtRMCgYBDCOMsXUAZfIOQkj0cdBFCzeZrOWuQTAKaB8TFu9KknG6QsDQAB/l5\\nFBMvyGoH4V+OGodlcVzn8v0bwcS1p6LErSrBoRjXkaFKYGY5+vOYdHJVXJW7Hc1n\\nr4HphjPxCvpv7LmHvddva3+4z5Du64I1sxsbvk971sAGBqEj2I+v7Q==\\n-----END RSA PRIVATE KEY-----\\n\"}"
+    }
+} 

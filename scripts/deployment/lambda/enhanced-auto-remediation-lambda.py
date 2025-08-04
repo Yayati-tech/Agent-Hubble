@@ -344,7 +344,7 @@ class TicketManager:
             payload = {
                 'title': f"Security Hub Finding: {ticket_data['title']}",
                 'body': self._format_github_description(ticket_data),
-                'labels': ['security-hub', 'auto-remediation', ticket_data['remediation_type']],
+                'labels': ['security-hub', 'auto_remediation', ticket_data['remediation_type']],
                 'assignees': []
             }
             
@@ -402,7 +402,7 @@ class TicketManager:
             status_label = 'remediation-success' if status == 'SUCCESS' else 'remediation-failed'
             
             payload = {
-                'labels': ['security-hub', 'auto-remediation', status_label]
+                'labels': ['security-hub', 'auto_remediation', status_label]
             }
             
             response = requests.patch(
